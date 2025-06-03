@@ -38,8 +38,8 @@ class VirtualMemorySimulator:
         """
         Inicializa o simulador com as configurações de tamanho do endereço virtual e tamanho da página.
         Valida os parâmetros e calcula os bits de offset, página, e máscaras necessárias.
-        Configura a TLB (16 entradas, LRU) e a Tabela de Páginas (32 entradas). [cite: 2]
-        Define se a paginação hierárquica será usada (para endereços de 32 bits com páginas de 4KB). [cite: 1]
+        Configura a TLB (16 entradas, LRU) e a Tabela de Páginas (32 entradas).
+        Define se a paginação hierárquica será usada (para endereços de 32 bits com páginas de 4KB). 
         """
         # Validação dos parâmetros de entrada baseados nos requisitos do projeto.
         if not isinstance(address_bits, int) or not (16 <= address_bits <= 32):
@@ -97,7 +97,7 @@ class VirtualMemorySimulator:
     def _extract_page_and_offset(self, virtual_address: int) -> Tuple[Union[int, Tuple[int,int]], int, int]:
         offset = virtual_address & self.offset_mask
         
-        if self.hierarchical_paging: # [cite: 1]
+        if self.hierarchical_paging:
             l2_page_idx = (virtual_address >> self.offset_bits) & ((1 << self.level2_bits) - 1)
             l1_page_idx = (virtual_address >> (self.offset_bits + self.level2_bits)) & ((1 << self.level1_bits) - 1)
             combined_page_number = (l1_page_idx << self.level2_bits) | l2_page_idx
@@ -107,13 +107,10 @@ class VirtualMemorySimulator:
             return page_number, offset, page_number
 
     def _tlb_lookup(self, combined_page_number: int) -> Optional[int]:
-        """Verifica se uma tradução (página virtual -> frame físico) está na TLB.
-        Implementa a política LRU movendo o item acessado para o final do OrderedDict.
-        Retorna o número do frame físico se for um TLB hit, ou None se for um TLB miss.
-        """
+        #verifica se uma traduçao (pagina virtual -> frame fisico) esta na TLB
         if combined_page_number in self.tlb:
             physical_frame = self.tlb[combined_page_number]
-            del self.tlb[combined_page_number] # Remove para readicionar no final (MRU)
+            del self.tlb[combined_page_number] # remove para readicionar no final (MRU)
             self.tlb[combined_page_number] = physical_frame 
             self.tlb_hits += 1
             return physical_frame
@@ -125,13 +122,13 @@ class VirtualMemorySimulator:
         """Verifica se uma tradução está na Tabela de Páginas.
         Usa o número combinado da página para encontrar a entrada na tabela de 32 PTEs simuladas.
         Retorna (True, physical_frame) se for page hit, ou (False, -1) se for page fault.
-        Atualiza o bit de acesso da PTE em caso de hit. [cite: 2]
+        Atualiza o bit de acesso da PTE em caso de hit.
         """
         pte_index = combined_page_number % self.page_table_size # Mapeia para uma das 32 entradas.
         entry = self.page_table[pte_index]
         
         if entry.valid and entry.virtual_page_mapped == combined_page_number:
-            entry.accessed = True # [cite: 2]
+            entry.accessed = True 
             self.page_hits += 1
             return True, entry.physical_frame
         else:
@@ -140,8 +137,8 @@ class VirtualMemorySimulator:
     
     def _handle_page_fault(self, combined_page_number: int) -> int:
         """Trata uma falta de página (page fault).
-        Carrega a página necessária do `backing_store.bin` para a memória física simulada. [cite: 2]
-        Atualiza a PageTableEntry correspondente (valid, accessed, physical_frame, etc.). [cite: 2]
+        Carrega a página necessária do `backing_store.bin` para a memória física simulada.
+        Atualiza a PageTableEntry correspondente (valid, accessed, physical_frame, etc.).
         Se a PTE escolhida já estava em uso por outra página, essa página é "evitada" (sem write-back).
         Retorna o número do frame físico onde a página foi carregada.
         """
@@ -172,9 +169,9 @@ class VirtualMemorySimulator:
         for i, byte_val in enumerate(page_data):
             self.physical_memory[physical_start_address + i] = byte_val
             
-        entry.valid = True # [cite: 2]
-        entry.accessed = True # [cite: 2]
-        entry.dirty = False # Página nova não está suja. [cite: 2]
+        entry.valid = True
+        entry.accessed = True
+        entry.dirty = False
         entry.physical_frame = physical_frame_to_use
         entry.virtual_page_mapped = combined_page_number
         
@@ -182,7 +179,7 @@ class VirtualMemorySimulator:
     
     def _update_tlb(self, combined_page_number: int, physical_frame: int):
         """Atualiza a TLB com uma nova tradução (página virtual -> frame físico).
-        Se a TLB estiver cheia, remove o item menos recentemente usado (LRU). [cite: 2]
+        Se a TLB estiver cheia, remove o item menos recentemente usado (LRU).
         """
         if len(self.tlb) >= self.tlb_max_size:
             self.tlb.popitem(last=False) # Remove o primeiro item (LRU).
@@ -192,7 +189,7 @@ class VirtualMemorySimulator:
         """
         Método principal que realiza a tradução do endereço virtual para físico.
         Segue o fluxo: TLB lookup -> Page Table lookup -> Page Fault handling (se necessário).
-        Retorna um dicionário com todos os detalhes da tradução para exibição. [cite: 2]
+        Retorna um dicionário com todos os detalhes da tradução para exibição.
         """
         result = { # Dicionário para armazenar os resultados.
             'virtual_address': virtual_address,
@@ -205,11 +202,11 @@ class VirtualMemorySimulator:
         }
         
         max_address = (1 << self.address_bits) - 1
-        if not (0 <= virtual_address <= max_address): # Validação do endereço. [cite: 1]
-            result['actions'].append(f"ERRO: Endereço virtual {virtual_address} (0x{virtual_address:X}) fora dos limites (0-{max_address}).") # [cite: 2]
+        if not (0 <= virtual_address <= max_address): # Validação do endereço. 
+            result['actions'].append(f"ERRO: Endereço virtual {virtual_address} (0x{virtual_address:X}) fora dos limites (0-{max_address}).") #
             return result
             
-        page_info, offset, combined_page_number = self._extract_page_and_offset(virtual_address) # [cite: 1]
+        page_info, offset, combined_page_number = self._extract_page_and_offset(virtual_address)
         result['offset'] = offset
 
         if self.hierarchical_paging:
@@ -218,7 +215,7 @@ class VirtualMemorySimulator:
         else:
             result['page_representation'] = f"PPN: {page_info} (Combinado: {combined_page_number})"
 
-        binary_addr = format(virtual_address, f'0{self.address_bits}b') # Representação binária. [cite: 1]
+        binary_addr = format(virtual_address, f'0{self.address_bits}b') # Representação binária. 
         if self.hierarchical_paging:
             page_binary_l1 = binary_addr[:self.level1_bits]
             page_binary_l2 = binary_addr[self.level1_bits : self.level1_bits + self.level2_bits]
@@ -232,25 +229,25 @@ class VirtualMemorySimulator:
         physical_frame = self._tlb_lookup(combined_page_number) # Consulta a TLB.
         
         if physical_frame is not None:
-            result['actions'].append("TLB hit") # [cite: 2]
+            result['actions'].append("TLB hit") 
         else: # TLB Miss.
-            result['actions'].append("TLB miss") # [cite: 2]
+            result['actions'].append("TLB miss") 
             page_found_in_pt, physical_frame_from_pt = self._page_table_lookup(combined_page_number) # Consulta Tabela de Páginas.
             
             if page_found_in_pt: # Page Hit na Tabela de Páginas.
-                result['actions'].append("Page hit") # [cite: 2]
+                result['actions'].append("Page hit") 
                 physical_frame = physical_frame_from_pt
             else: # Page Fault.
-                result['actions'].append("Page fault") # [cite: 2]
+                result['actions'].append("Page fault") 
                 physical_frame = self._handle_page_fault(combined_page_number) # Trata o Page Fault.
-                result['actions'].append(f"Carregado da backing store ({"backing_store.bin"}) para Frame Físico {physical_frame}") # [cite: 2]
+                result['actions'].append(f"Carregado da backing store ({"backing_store.bin"}) para Frame Físico {physical_frame}")
             
             self._update_tlb(combined_page_number, physical_frame) # Atualiza a TLB.
         
         physical_address = (physical_frame * self.page_size_bytes) + offset # Calcula endereço físico.
         result['physical_address'] = physical_address
         
-        # Lê o valor da memória física simulada. O PDF [cite: 1] pede "Valor lido da memória (arquivo data_memory.txt)",
+        # Lê o valor da memória física simulada. O PDF  pede "Valor lido da memória (arquivo data_memory.txt)",
         # mas aqui o valor vem da RAM simulada, que é preenchida pelo backing store.
         if physical_address in self.physical_memory:
             result['value'] = self.physical_memory[physical_address]
@@ -308,7 +305,7 @@ def main():
     """
     Ponto de entrada do script. Processa argumentos da linha de comando,
     inicializa o simulador e executa a tradução de endereços.
-    Pode processar um único endereço ou um arquivo de endereços. [cite: 1]
+    Pode processar um único endereço ou um arquivo de endereços. 
     """
     # Verifica se os argumentos mínimos foram fornecidos.
     if len(sys.argv) < 2:
